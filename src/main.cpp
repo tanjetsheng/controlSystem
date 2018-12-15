@@ -6,7 +6,7 @@
 #include <string.h>
 #include <RingBufCPP.h>
 #include "config.h"
-#define DEBUG
+//#define DEBUG
 #include "DebugUtils.h"
 
 byte board;
@@ -49,7 +49,7 @@ void setup()
 {
   board = 0;
   mod = 0;
-  size = 0;
+  size = 1;
   act = 0;
 
   ClientRequest = "";
@@ -58,16 +58,16 @@ void setup()
 
   WiFi.disconnect();
   delay(3000);
-  Serial.println("START");
+  DEBUG_PRINT("START");
   WiFi.begin("DMC2","pv121717");
   while ((!(WiFi.status() == WL_CONNECTED))){
     delay(300);
     Serial.print("..");
 
   }
-  Serial.println("Connected");
-  Serial.println("Your IP is");
-  Serial.println((WiFi.localIP()));
+  DEBUG_PRINT("Connected");
+  DEBUG_PRINT("Your IP is");
+  DEBUG_PRINT((WiFi.localIP()));
   server.begin();
 
 }
@@ -126,7 +126,7 @@ void loop()
     client.println("");
     //---------------action--------------------//
     if (ClientRequest == "on") {
-        act = 0x0;
+        act = 0xa;
         putInArray();
         getData();
         if(R_act == 1)
@@ -136,7 +136,16 @@ void loop()
 
     }
     if (ClientRequest == "off") {
-        act = 0x01;
+        act = 0xb;
+        putInArray();
+        getData();
+        if(R_act == 1)
+            client.println("on");
+        else
+          client.println("off");
+    }
+    if (ClientRequest == "Read") {
+        act = 0x02;
         putInArray();
         getData();
         if(R_act == 1)
@@ -148,23 +157,27 @@ void loop()
     //-------------mode-----------------------//
     if (ClientRequest == "check") {
         mod = 0x0;
-        Serial.println("check");
+        board = 0;
+        act = 0;
+        DEBUG_PRINT("check");
+        putInArray();
+        delay(250);
         putInArray();
         getData();
-        client.println(2);
-        //client.println(R_board);
+      //  client.println(2);
+        client.println(R_board);
     }
     if (ClientRequest == "Buzz") {
         mod = 0x01;
-        Serial.println("BUzz");
+        DEBUG_PRINT("BUzz");
     }
     if (ClientRequest == "Lock") {
         mod = 0x02;
-        Serial.println("Lock");
+        DEBUG_PRINT("Lock");
     }
     if (ClientRequest == "Alarm") {
         mod = 0x03;
-        Serial.println("Alarm");
+        DEBUG_PRINT("Alarm");
     }
     //-------------------------------------//
     //-------------size----------------------//
