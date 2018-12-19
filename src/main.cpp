@@ -9,6 +9,8 @@
 //#define DEBUG
 #include "DebugUtils.h"
 
+#define WAIT 1000
+
 byte board;
 byte mod;
 byte size;
@@ -20,13 +22,19 @@ byte R_mod;
 byte R_size;
 byte R_act;
 
-enum receiveData {
-  BOARD,
-  MOD,
-  SIZE,
-  ACT
-};
-receiveData receiveState = BOARD;
+byte r_board;
+byte r_mod;
+byte r_size;
+byte r_act;
+
+int BoardTotal = 0;
+int brokeBoard =0;
+int brokeBoardNum[10];
+int checkNum = 0;
+char buff[50];
+char buff1[20];
+
+
 
 String  ClientRequest;
 WiFiServer server(80);
@@ -84,37 +92,92 @@ void putInArray(){
   Serial.write(send,4);
 }
 
-void getData(){
-  receiveState = BOARD;
-  switch(receiveState){
-    case BOARD:
-    if (Serial.available() > 0) {
-      R_board = Serial.read();
-      receiveState = MOD;
-    }
-    break;
-    case MOD:
-    if (Serial.available() > 0) {
-      R_mod = Serial.read();
-      receiveState = SIZE;
-    }
-    break;
-    case SIZE:
-    if (Serial.available() > 0) {
-      R_size = Serial.read();
-      receiveState = ACT;
-    }
-    break;
-    case ACT:
-    if (Serial.available() > 0) {
-      R_act = Serial.read();
-    }
-    break;
+
+void print(){
+  sprintf(buff ,"%x , %x ,%x, %x",R_board,R_mod,R_size,R_act);
+}
+
+void print1(){
+  sprintf(buff1 ,"%x , %x ,%x, %x",r_board,r_mod,r_size,r_act);
+}
+
+void read(){
+  if (Serial.available() > 0) {
+    R_board = Serial.read();
+  }
+  if (Serial.available() > 0) {
+    R_mod = Serial.read();
+  }
+  if (Serial.available() > 0) {
+    R_size = Serial.read();
+  }
+  if (Serial.available() > 0) {
+    R_act = Serial.read();
   }
 }
+
+void read1(){
+  if (Serial.available() > 0) {
+    r_board = Serial.read();
+  }
+  if (Serial.available() > 0) {
+    r_mod = Serial.read();
+  }
+  if (Serial.available() > 0) {
+    r_size = Serial.read();
+  }
+  if (Serial.available() > 0) {
+    r_act = Serial.read();
+  }
+}
+
+void sendAndRead(){
+  R_act = 0;
+  putInArray();
+  delay(WAIT);
+  read1();
+  delay(WAIT);
+  putInArray();
+  delay(WAIT);
+  read();
+  delay(WAIT);
+}
+
+void validate(){
+  board = 1;
+  mod = 0;
+  act = 0xc;
+  BoardTotal = 0;
+  brokeBoard = 0;
+  int num = 0;
+  memset(brokeBoardNum, 0 , 10);
+  for(int i=1; i<=3 ;i++){
+    read();
+    sendAndRead();
+    if(R_act == 1){
+      BoardTotal++;
+    }
+    else if(R_act == 0){
+      brokeBoard++;
+      brokeBoardNum[num] = board;
+      num++;
+    }
+    board++;
+  }
+}
+
+void rearrange(){
+  int a = 0;
+  for(int i = 0;i<brokeBoard;i++){
+    if(brokeBoardNum[a] <= board){
+      board = board + 1;
+      a++;
+    }
+  }
+}
+
 void loop()
 {
-
     client = server.available();
     if (!client) { return; }
     while(!client.available()){  delay(1); }
@@ -127,28 +190,33 @@ void loop()
     //---------------action--------------------//
     if (ClientRequest == "on") {
         act = 0xa;
-        putInArray();
-        getData();
-        if(R_act == 1)
-            client.println("on");
-        else
-          client.println("off");
+        sendAndRead();
+        print();
+        print1();
+        client.println(buff1);
+        client.println(buff);
+         if(R_act == 0x0A)
+             client.println("on");
+         else
+             client.println("off");
 
     }
     if (ClientRequest == "off") {
         act = 0xb;
-        putInArray();
-        getData();
-        if(R_act == 1)
+        sendAndRead();
+        print();
+        print1();
+        client.println(buff1);
+        client.println(buff);
+        if(R_act == 0x0A)
             client.println("on");
         else
           client.println("off");
     }
     if (ClientRequest == "Read") {
-        act = 0x02;
-        putInArray();
-        getData();
-        if(R_act == 1)
+        act = 0xc;
+        sendAndRead();
+        if(R_act == 0x0A)
             client.println("on");
         else
           client.println("off");
@@ -160,12 +228,12 @@ void loop()
         board = 0;
         act = 0;
         DEBUG_PRINT("check");
-        putInArray();
-        delay(250);
-        putInArray();
-        getData();
-      //  client.println(2);
-        client.println(R_board);
+        validate();
+        print();
+        //client.println(buff);
+      //  client.println(BoardTotal);
+    //  client.println(brokeBoardNum[1]);
+        client.println(2);
     }
     if (ClientRequest == "Buzz") {
         mod = 0x01;
@@ -182,15 +250,18 @@ void loop()
     //-------------------------------------//
     //-------------size----------------------//
     if (ClientRequest == "1"){
-      board = 0x01;
+      board = 1;
+//      rearrange();
       DEBUG_PRINT(size);
     }
     if (ClientRequest == "2"){
-      board = 0x02;
+      board = 2;
+//      rearrange();
       DEBUG_PRINT(size);
     }
     if (ClientRequest == "3"){
-      board = 0x03;
+      board = 3;
+//    rearrange();
       DEBUG_PRINT(size);
     }
     //-----------------------------------//
